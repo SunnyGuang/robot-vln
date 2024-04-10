@@ -1,0 +1,166 @@
+<launch>
+    <arg name="localization" default="false"/>
+    <arg name="com_port" default="/dev/ttyUSB0"/>
+    <arg name="preview" default="false"/>
+    <arg name='teleop' default="false"/>
+    <arg name="use_sim_time" value="true"/>
+    <arg name="mapping" default="false"/>
+    <arg name="map_path" default="/home/sunny/test.yaml"/>
+    
+    <!-- rosaria -->
+    <include file="$(find gdrl)/launch/includes/robot.launch">
+        <arg name="com_port" value="$(arg com_port)"/>
+        <arg name="preview" value="$(arg preview)"/>
+    </include>
+
+    <!--node pkg="tf" type="static_transform_publisher" name="base2mount" args="0 0.05 0 0 0 0 camera_mount_top os_sensor 100" /-->
+
+    <!-- ouster -->
+
+
+    <arg name="ouster_ns" default="ouster" doc="Override the default namespace of all ouster nodes"/>
+    <arg name="sensor_hostname" default="169.254.247.77" doc="hostname or IP in dotted decimal form of the sensor"/>
+    <arg name="udp_dest" default="169.254.245.68" doc="hostname or IP where the sensor will send data packets"/>
+    <arg name="lidar_port" default="7502" doc="port to which the sensor should send lidar data"/>
+    <arg name="imu_port" default="7503" doc="port to which the sensor should send imu data"/>
+    <arg name="udp_profile_lidar" default="LEGACY" doc="lidar packet profile; possible values: {
+        LEGACY,
+        RNG19_RFL8_SIG16_NIR16_DUAL,
+        RNG19_RFL8_SIG16_NIR16,
+        RNG15_RFL8_NIR8
+        }"/>
+    <arg name="lidar_mode" default="2048x10" doc="resolution and rate; possible vaules: {
+        512x10,
+        512x20,
+        1024x10,
+        1024x20,
+        2048x10
+        }"/>
+    <arg name="timestamp_mode" default="TIME_FROM_ROS_TIME" doc="method used to timestamp measurements; possible values: {
+        TIME_FROM_INTERNAL_OSC,
+        TIME_FROM_SYNC_PULSE_IN,
+        TIME_FROM_PTP_1588,
+        TIME_FROM_ROS_TIME
+        }"/>
+    <arg name="metadata" default="/home/sunny/catkin_ws/src/ouster_ros/metadata.json" doc="path to write metadata file when receiving sensor data"/>
+    <arg name="viz" default="false" doc="whether to run a rviz"/>
+    <arg name="rviz_config" default="$(find ouster_ros)/config/viz.rviz" doc="optional rviz config file"/>
+    <arg name="tf_prefix" default="" doc="namespace for tf transforms"/>
+
+    <!--group ns="$(arg ouster_ns)">
+        <node pkg="nodelet" type="nodelet" name="os_nodelet_mgr"
+        output="screen" required="true"
+        launch-prefix="bash -c 'sleep 2; $0 $@' "
+        args="manager"/>
+    </group-->
+
+    <!--group ns="$(arg ouster_ns)">
+        <node pkg="nodelet" type="nodelet" name="os_node"
+        output="screen" required="true"
+        launch-prefix="bash -c 'sleep 3; $0 $@' "
+        args="load nodelets_os/OusterSensor os_nodelet_mgr">
+        <param name="~/sensor_hostname" type="str" value="$(arg sensor_hostname)"/>
+        <param name="~/udp_dest" type="str" value="$(arg udp_dest)"/>
+        <param name="~/lidar_port" type="int" value="$(arg lidar_port)"/>
+        <param name="~/imu_port" type="int" value="$(arg imu_port)"/>
+        <param name="~/udp_profile_lidar" type="str" value="$(arg udp_profile_lidar)"/>
+        <param name="~/lidar_mode" type="str" value="$(arg lidar_mode)"/>
+        <param name="~/timestamp_mode" type="str" value="$(arg timestamp_mode)"/>
+        <param name="~/metadata" type="str" value="$(arg metadata)"/>
+        </node>
+    </group-->
+
+    <!--include file="$(find ouster_ros)/launch/common.launch">
+        <arg name="ouster_ns" value="$(arg ouster_ns)"/>
+        <arg name="viz" value="$(arg viz)"/>
+        <arg name="rviz_config" value="$(arg rviz_config)"/>
+        <arg name="tf_prefix" value="$(arg tf_prefix)"/>
+        <arg name="timestamp_mode" value="$(arg timestamp_mode)"/>
+    </include-->
+
+    <include file="$(find ouster_ros)/launch/sensor.launch"/>
+    
+
+    <node name="lidar_static_tf" pkg="tf" type="static_transform_publisher" args="0 0 0.3 0 0 0 base_link os_sensor 100" />
+
+    <!-- Laser -->>
+    <node name="pointcloud_to_laserscan_node" pkg="pointcloud_to_laserscan" type="pointcloud_to_laserscan_node" >
+        <param name="target_frame" value="os_sensor" />
+        <param name="transform_tolerance" value="0.01"/>
+        <param name="min_height" value="-0.0"/> 
+        <param name="angle_min" value="-pi"/>
+        <param name="angle_max" value="pi"/>  
+        <remap from="cloud_in" to= "/ouster/points" />
+        <remap from="scan" to="scan" />
+    </node>
+
+    <!-- mapping -->>
+    <group if="$(arg mapping)">
+        <node pkg="gmapping" type="slam_gmapping" name="slam_gmapping" output="screen" >
+            <param name="map_update_interval" value="5.0"/>
+            <param name="maxUrange" value="6.0"/>
+            <param name="maxRange" value="8.0"/>
+            <param name="linearUpdate" value="0.05"/>
+            <param name="angularUpdate" value="0.5"/>
+            <remap from="scan" to="scan" />
+            <param name="odom_frame" value="odom" />
+            <param name="base_frame" value="base_link" />
+            <param name="map_frame" value="map"/>
+        </node>
+
+        <node name="teleop_twist_keyboard" pkg="gdrl" type="teleop_twist_keyboard" output="screen"/>
+
+        <node pkg="move_base" type="move_base" respawn="false" name="move_base" output="screen">
+            <param name="clearing_rotation_allowed" value="true" />
+            <rosparam file="$(find gdrl)/params/costmap_common_params.yaml" command="load" ns="global_costmap" /> 
+            <rosparam file="$(find gdrl)/params/costmap_common_params.yaml" command="load" ns="local_costmap" />
+            <rosparam file="$(find gdrl)/params/local_costmap_params.yaml" command="load" />
+            <rosparam file="$(find gdrl)/params/global_costmap_params.yaml" command="load" /> 
+            <rosparam file="$(find gdrl)/params/base_local_planner_params.yaml" command="load" />
+            <remap from="/cmd_vel" to="/cmd_vel" />
+        </node>
+    </group>
+
+    <group if="$(arg localization)">
+        <node pkg="map_server" type="map_server" name="map_node" args="$(arg map_path)" required="true">
+            <param name="frame_id" value="map" />
+        </node>
+
+        <include file="$(find gdrl)/launch/amcl.launch">
+        </include>
+
+        <node pkg="laser_scan_matcher" type="laser_scan_matcher_node" name="laser_scan_matcher_node" output="screen">
+            <param name="use_imu" value="false"/>
+            <param name="use_odom" value="false"/>
+            <param name="use_cloud_input" value="false"/>
+            <param name="fixed_frame" value="odom"/>
+            <param name="max_iterations" value="10"/>
+        </node>
+        <!--node pkg="amcl" type="amcl" name="amcl">
+            <remap from="/scan" to="/scan"/>
+        </node-->
+
+        <node pkg="move_base" type="move_base" respawn="false" name="move_base" output="screen">
+            <param name="clearing_rotation_allowed" value="true" />
+            <rosparam file="$(find gdrl)/params/costmap_common_params.yaml" command="load" ns="global_costmap" /> 
+            <rosparam file="$(find gdrl)/params/costmap_common_params.yaml" command="load" ns="local_costmap" />
+            <rosparam file="$(find gdrl)/params/local_costmap_params.yaml" command="load" />
+            <rosparam file="$(find gdrl)/params/global_costmap_params.yaml" command="load" /> 
+            <rosparam file="$(find gdrl)/params/base_local_planner_params.yaml" command="load" />
+            <remap from="/cmd_vel" to="/cmd_vel" />
+        </node>
+
+    </group>
+
+    <node name="map2odom" pkg="tf" type="static_transform_publisher" args="0 0 0 0 0 0 /map /odom 100"/>
+    <!--node name="odom2base" pkg="tf" type="static_transform_publisher" args="0 0 0 0 0 0 /odom /base_link 100"/-->
+    
+    <!-- rviz -->
+    <node name="rviz" pkg="rviz" type="rviz" args="-d $(find gdrl)/config/robot.rviz" output="screen">
+        <remap from="~/os_config" to="/os_node/os_config"/>
+        <remap from="~/points" to="/os_cloud_node/points"/>
+        <remap from="~/points2" to="/os_cloud_node/points2"/>
+    </node>
+    <!-- teleop -->>
+    <!--node name="teleop_twist_keyboard" pkg="gdrl" type="teleop_twist_keyboard" output="screen"/-->
+</launch>

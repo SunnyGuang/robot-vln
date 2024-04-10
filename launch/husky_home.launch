@@ -1,0 +1,38 @@
+<launch>
+  <arg name="x_pos" default="0.0"/>
+  <arg name="y_pos" default="0.0"/>
+  <arg name="z_pos" default="0.0"/>
+  <arg name="map_path" default="/home/sunny/catkin_ws/src/project/gazebo_map/house_map.yaml" />
+
+  <include file="$(find gazebo_ros)/launch/empty_world.launch">
+    <arg name="world_name" value="$(find aws_robomaker_small_house_world)/worlds/home.world"/>
+    <arg name="paused" value="false"/>
+    <arg name="use_sim_time" value="true"/>
+    <arg name="gui" value="true"/>
+    <arg name="headless" value="false"/>
+    <arg name="debug" value="false"/>
+  </include>
+
+  <!-- rviz -->
+  <node name="rviz_gazebo" pkg="rviz" type="rviz" args="-d $(find project)/rviz/gazebo.rviz"/>
+
+  <!--param name="robot_description" command="$(find xacro)/xacro inorder $(find turtlebot3_description)/urdf/turtlebot3_$(arg model).urdf.xacro" /-->
+
+  <include file="$(find husky_gazebo)/launch/spawn_husky.launch">
+  </include>
+
+  <!-- Map server -->
+  <node pkg="map_server" name="map_server" type="map_server" args="$(arg map_path)"/>
+
+  <!-- AMCL -->
+  <include file="$(find husky_navigation)/launch/amcl.launch"/>
+
+  <include file="$(find husky_navigation)/launch/move_base.launch">
+  </include>
+
+  <!-- Launch darknet_ros -->
+  <include file="$(find darknet_ros)/launch/darknet_ros.launch">
+    <arg name="image" default="/realsense/color/image_raw" />
+  </include>
+
+</launch>

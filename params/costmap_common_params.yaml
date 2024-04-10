@@ -1,0 +1,25 @@
+# robot shape
+#footprint: [[0.3302, -0.0508], [0.254, -0.0508], [-0.2, 0.2], [-0.2, -0.2], [0.2, -0.2]]
+robot_radius: 0.3
+inflation_radius: 0.8 #0.15 diamater of robot
+
+
+obstacle_range: 3.0 # maxmin local detect range
+raytrace_range: 3.5
+transform_tolerance: 0.5
+map_type: costmap  # costmap for 2D, voxel for 3D
+
+observation_sources: laser_scan_sensor rtabmap_sensor sonar_pointcloud
+
+laser_scan_sensor: {sensor_frame: os_sensor, data_type: LaserScan, topic: scan, marking: true, clearing: true}
+sonar_pointcloud: {sensor_frame: sonar, data_type: PointCloud, topic: /rosaria/sonar_pointcloud, marking: true, clearing: true}
+rtabmap_sensor: {sensor_frame: camera_link, data_type: PointCloud2, topic: /camera/depth_registered/points, marking: true, clearing: true}
+
+
+inflation_layer:
+  enabled:              true
+  cost_scaling_factor:  4.0
+  inflation_radius:     0.8
+
+static_layer:
+  enabled:              true

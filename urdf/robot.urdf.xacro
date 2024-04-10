@@ -1,0 +1,20 @@
+<?xml version="1.0"?>
+
+<robot name="robot" xmlns:xacro="http://ros.org/wiki/xacro">
+
+  <!-- sensor mount description -->
+  <xacro:include filename="$(find project)/urdf/camera_mount.urdf.xacro" />
+  <xacro:camera_mount_xacro parent="base_link">
+    <origin rpy="0 0 0" xyz="0 0 0.47"/>
+  </xacro:camera_mount_xacro>
+
+  <!-- realsense d435i description -->
+  <xacro:include filename="$(find realsense2_description)/urdf/_d435i.urdf.xacro" />
+  <xacro:sensor_d435i name="camera" parent="camera_mount_top">
+    <origin rpy="0 0 0" xyz="0 0.023 0.02"/>
+  </xacro:sensor_d435i>
+
+  <!-- robot description -->
+  <xacro:include filename="$(find project)/urdf/pioneer3dx.urdf.xacro"/>
+
+</robot>

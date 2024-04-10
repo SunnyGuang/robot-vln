@@ -1,0 +1,13 @@
+<launch>
+  <!-- Arguments -->
+  <arg name="goal_x" default="6.0" doc="goal point x-coordinate"/>
+  <arg name="goal_y" default="-1.0" doc="goal point y-coordinate"/>
+
+  <!-- Node to set goal using the coordinates -->
+  <node pkg="project" type="set_goal.py" name="set_goal" output="screen">
+    <param name="goal_x" value="$(arg goal_x)" />
+    <param name="goal_y" value="$(arg goal_y)" />
+  </node>
+
+  
+</launch>

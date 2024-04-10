@@ -1,0 +1,76 @@
+<launch>
+    <arg name="cmd_vel_topic" default="/RosAria/cmd_vel" />
+    <arg name="odom_topic" default="odom" />
+    <arg name="move_forward_only" default="false"/>
+    <arg name="map_file" default="$(env HOME)/map_lab.yaml" doc="path to the map file"/>
+    <arg name="goal_x" default="0.0" doc="goal point x-coordinate"/>
+    <arg name="goal_y" default="0.0" doc="goal point y-coordinate"/>
+    <arg name="initial_pose_x" default="0.0"/>
+    <arg name="initial_pose_y" default="0.0"/>
+    <arg name="initial_pose_a" default="0.0"/>
+    <arg name="scan_topic" default="scan"/>
+    <arg name="open_rviz" default="false"/>
+    <arg name="use_amcl" default="false" doc="If set to true, uses AMCL for localization, else uses RTABMap"/>
+    
+    <arg name="com_port" default="/dev/ttyUSB0"/>
+    <arg name="enable_teleop" default="false"/>
+    <arg name="urdf" default="robot.urdf"/>
+    <arg name="preview" default="false"/>
+    
+    <arg name="align_depth" value="true"/>
+    <arg name="unite_imu_method" value="linear_interpolation"/>
+    <arg name="enable_gyro" value="true"/>
+    <arg name="enable_accel" value="true"/>
+    <arg name="publish_tf" value="true"/>
+    <arg name="depth_width" value="640"/>
+    <arg name="depth_height" value="480"/>
+    <arg name="enable_depth" value="true"/>
+    <arg name="color_width" value="640"/>
+    <arg name="color_height" value="480"/>
+    <arg name="enable_color" value="true"/>
+    <arg name="depth_fps" value="30"/>
+    <arg name="color_fps" value="30"/>
+    <arg name="rtab_database_path" value="/home/sunny/.ros/rtabmap.db" />
+
+    <!-- rtabmap RGB-D related topics -->
+    <arg name="rgb_topic"               default="/camera/color/image_raw" />
+    <arg name="depth_topic"             default="/camera/depth/image_rect_raw" />
+    <arg name="camera_info_topic"       default="/camera/color/camera_info" />
+    <arg name="depth_camera_info_topic" default="/camera/depth/camera_info" />
+
+    <!-- Pioneer 3DX robot launch -->
+    <include file="$(find project)/launch/robot.launch">
+        <arg name="com_port" value="$(arg com_port)"/>
+        <arg name="enable_teleop" value="$(arg enable_teleop)"/>
+        <arg name="urdf" value="$(arg urdf)"/>
+        <arg name="preview" value="$(arg preview)"/>
+    </include>
+    
+    <!-- RealSense Camera -->
+    <include file="$(find realsense2_camera)/launch/rs_rgbd.launch">
+        <arg name="align_depth" value="$(arg align_depth)"/>
+        <arg name="enable_gyro" value="$(arg enable_gyro)"/>
+        <arg name="enable_accel" value="$(arg enable_accel)"/>
+        <arg name="publish_tf" value="$(arg publish_tf)"/>
+        <arg name="depth_width" value="$(arg depth_width)"/>
+        <arg name="depth_height" value="$(arg depth_height)"/>
+        <arg name="enable_depth" value="$(arg enable_depth)"/>
+        <arg name="color_width" value="$(arg color_width)"/>
+        <arg name="color_height" value="$(arg color_height)"/>
+        <arg name="enable_color" value="$(arg enable_color)"/>
+        <arg name="depth_fps" value="$(arg depth_fps)"/>
+        <arg name="color_fps" value="$(arg color_fps)"/>
+    </include>
+
+    <!--rtabmap-mapping-->
+    <include file="$(find rtabmap_ros)/launch/rtabmap.launch">
+        <arg name="rtabmap_viz" value="false" />
+        <arg name="rviz" value="true" />
+        <arg name="args" value="--delete_db_on_start"/>
+        <arg name="rgb_topic"               value="$(arg rgb_topic)" />
+        <arg name="depth_topic"             value="$(arg depth_topic)" />
+        <arg name="camera_info_topic"       value="$(arg camera_info_topic)" />
+        <arg name="depth_camera_info_topic" value="$(arg depth_camera_info_topic)" />
+    </include>
+
+</launch>

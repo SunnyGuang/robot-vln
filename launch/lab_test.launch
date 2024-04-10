@@ -1,0 +1,277 @@
+    <launch>
+        <!-- Arguments -->
+        <arg name="cmd_vel_topic" default="/RosAria/cmd_vel" />
+        <arg name="odom_topic" default="odom" />
+        <arg name="move_forward_only" default="false"/>
+        <arg name="map_file" default="$(env HOME)/map_lab.yaml" doc="path to the map file"/>
+        <arg name="goal_x" default="0.0" doc="goal point x-coordinate"/>
+        <arg name="goal_y" default="0.0" doc="goal point y-coordinate"/>
+        <arg name="initial_pose_x" default="0.0"/>
+        <arg name="initial_pose_y" default="0.0"/>
+        <arg name="initial_pose_a" default="0.0"/>
+        <arg name="scan_topic" default="scan"/>
+        <arg name="open_rviz" default="false"/>
+        <arg name="use_amcl" default="false" doc="If set to true, uses AMCL for localization, else uses RTABMap"/>
+        
+        <arg name="com_port" default="/dev/ttyUSB0"/>
+        <arg name="enable_teleop" default="false"/>
+        <arg name="urdf" default="robot.urdf"/>
+        <arg name="preview" default="false"/>
+        
+        <arg name="align_depth" value="true"/>
+        <arg name="unite_imu_method" value="linear_interpolation"/>
+        <arg name="enable_gyro" value="true"/>
+        <arg name="enable_accel" value="true"/>
+        <arg name="publish_tf" value="true"/>
+        <arg name="depth_width" value="640"/>
+        <arg name="depth_height" value="480"/>
+        <arg name="enable_depth" value="true"/>
+        <arg name="color_width" value="640"/>
+        <arg name="color_height" value="480"/>
+        <arg name="enable_color" value="true"/>
+        <arg name="depth_fps" value="30"/>
+        <arg name="color_fps" value="30"/>
+        <arg name="rtab_database_path" value="/home/sunny/.ros/rtabmap.db" />
+        <arg name="wait_for_transform" default="0.2" />
+        <arg name="localizaion" default="true" />
+
+        <!-- Pioneer 3DX robot launch -->
+        <include file="$(find project)/launch/robot.launch">
+            <arg name="com_port" value="$(arg com_port)"/>
+            <arg name="enable_teleop" value="$(arg enable_teleop)"/>
+            <arg name="urdf" value="$(arg urdf)"/>
+            <arg name="preview" value="$(arg preview)"/>
+        </include>
+
+        <!-- Map Server -->
+        <node pkg="map_server" type="map_server" name="map_node" args="$(arg map_file)" required="true">
+            <param name="frame_id" value="map" />
+        </node>
+        
+        <!-- RealSense Camera -->
+        <include file="$(find realsense2_camera)/launch/rs_rgbd.launch">
+            <arg name="align_depth" value="$(arg align_depth)"/>
+            <arg name="enable_gyro" value="$(arg enable_gyro)"/>
+            <arg name="enable_accel" value="$(arg enable_accel)"/>
+            <arg name="publish_tf" value="$(arg publish_tf)"/>
+            <arg name="depth_width" value="$(arg depth_width)"/>
+            <arg name="depth_height" value="$(arg depth_height)"/>
+            <arg name="enable_depth" value="$(arg enable_depth)"/>
+            <arg name="color_width" value="$(arg color_width)"/>
+            <arg name="color_height" value="$(arg color_height)"/>
+            <arg name="enable_color" value="$(arg enable_color)"/>
+            <arg name="depth_fps" value="$(arg depth_fps)"/>
+            <arg name="color_fps" value="$(arg color_fps)"/>
+        </include>
+        
+
+        <!-- AMCL -->
+        <group if="$(arg use_amcl)">
+            <!-- PointCloud to LaserScan -->
+            <node pkg="pointcloud_to_laserscan" type="pointcloud_to_laserscan_node" name="pointcloud_to_laserscan">
+                <!--param name="target_frame" value="sensor_d435i" /-->
+                <!--param name="target_frame" value="base_link" /-->
+                <remap from="cloud_in" to="/camera/depth_registered/points"/>
+                <!--remap from="scan" to="scan"/-->
+
+                <param name="scan_topic" value="scan"/>
+                <param name="transform_tolerance" value="0.01"/>
+                <param name="target_frame" value="base_link"/>
+                <param name="output_frame_id" value="base_link"/>
+                <param name="min_height" value="0.0"/>
+                <param name="max_height" value="2.0"/>
+                <param name="angle_min" value="-0.75"/>  <!-- -45 degrees -->
+                <param name="angle_max" value="0.75"/>   <!--  45 degrees -->
+                <param name="angle_increment" value="0.01"/>
+                <param name="scan_time" value="0.0333"/>
+                <param name="range_min" value="0.3"/>
+                <param name="range_max" value="10.0"/>
+                <param name="use_inf" value="false"/>
+            </node>
+
+            <include file="$(find project)/launch/amcl.launch">
+                <remap from="scan" to="$(arg scan_topic)"/>   
+                <param name="odom_model_type" value="diff"/>
+                <param name="odom_alpha5" value="0.1"/>
+                <param name="initial_pose_x" value="0"/>
+                <param name="initial_pose_y" value="0"/>
+                <param name="initial_pose_a" value="0"/>
+            </include>
+
+            <!--move_base-->
+            <node pkg="move_base" type="move_base" respawn="false" name="move_base" output="screen">
+                <param name="clearing_rotation_allowed" value="true" />
+                <rosparam file="$(find project)/params/costmap_common_params.yaml" command="load" ns="global_costmap" /> 
+                <rosparam file="$(find project)/params/costmap_common_params.yaml" command="load" ns="local_costmap" />
+                <rosparam file="$(find project)/params/local_costmap_params.yaml" command="load" />
+                <rosparam file="$(find project)/params/global_costmap_params.yaml" command="load" /> 
+                <rosparam file="$(find project)/params/base_local_planner_params.yaml" command="load" />
+                <remap from="/cmd_vel" to="/cmd_vel" />
+            </node>
+
+        </group>
+
+        <!-- RTABMap -->
+        <group unless="$(arg use_amcl)">
+
+            <node pkg="pointcloud_to_laserscan" type="pointcloud_to_laserscan_node" name="pointcloud_to_laserscan">
+                <!--param name="target_frame" value="sensor_d435i" /-->
+                <!--param name="target_frame" value="base_link" /-->
+                <remap from="cloud_in" to="/camera/depth_registered/points"/>
+                <!--remap from="scan" to="scan"/-->
+
+                <param name="scan_topic" value="scan"/>
+                <param name="transform_tolerance" value="0.01"/>
+                <param name="target_frame" value="base_link"/>
+                <param name="output_frame_id" value="base_link"/>
+                <param name="min_height" value="0.0"/>
+                <param name="max_height" value="2.0"/>
+                <param name="angle_min" value="-0.75"/>  <!-- -45 degrees -->
+                <param name="angle_max" value="0.75"/>   <!--  45 degrees -->
+                <param name="angle_increment" value="0.01"/>
+                <param name="scan_time" value="0.0333"/>
+                <param name="range_min" value="0.3"/>
+                <param name="range_max" value="10.0"/>
+                <param name="use_inf" value="false"/>
+            </node>
+
+            <!--node name="rtabmap" pkg="rtabmap_slam" type="rtabmap" output="screen" args="delete_db_on_start">
+                <param name="database_path" value="$(arg rtab_database_path)"/>
+                <param name="subscribe_depth" value="true"/>
+                <param name="subscribe_rgb" value="true"/>
+                <param name="subscribe_scan" value="false"/>
+                <param name="frame_id" value="base_link"/>
+                <param name="odom_frame_id" value="odom"/>
+                <param name="approx_sync" value="true"/>
+                <param name="localization" value="true"/-->
+                
+                <!-- Localization mode >
+                <param name="Mem/IncrementalMemory" type="string" value="false"/>
+                <param name="Mem/IncrementalMemory" value="true"/-->
+                
+                <!-- Input topics >
+                <remap from="rgb/image" to="/camera/color/image_raw"/>
+                <remap from="depth/image" to="/camera/depth/image_rect_raw"/>
+                <remap from="rgb/camera_info" to="/camera/color/camera_info"/>
+            </node-->
+
+            <!-- Run imu_filter_madgwick node -->
+            <!-- node pkg="imu_filter_madgwick" type="imu_filter_node" name="imu_filter_node">
+                <param name="use_mag" value="false"/>
+                <param name="publish_tf" value="false"/>
+                <param name="world_frame" value="enu"/>
+                <remap from="/imu/data_raw" to="/camera/imu"/>
+                <remap from="/imu/data" to="/rtabmap/imu"/>
+            </node-->
+
+            <include file="$(find rtabmap_ros)/launch/rtabmap.launch">
+                <arg name="rtabmap_args" value="--delete_db_on_start --Optimizer/GravitySigma 0.3"/>
+                <arg name="database_path" value="$(arg rtab_database_path)"/>
+                <arg name="frame_id" value="base_link"/>
+                <arg name="odom_frame_id" value="odom"/>
+                <arg name="wait_for_transform" value="$(arg wait_for_transform)"/>
+
+                <!-- Input topics -->
+                <arg name="depth_topic" value="/camera/aligned_depth_to_color/image_raw"/>
+                <arg name="rgb_topic" value="/camera/color/image_raw"/>
+                <arg name="camera_info_topic" value="/camera/color/camera_info"/>
+                <arg name="scan_topic" value="/scan"/>
+
+
+                <!-- Output topics -->
+
+                <!--Rtabmap parameters-->
+                <arg name="subscribe_rgb" value="true"/>
+                <arg name="subscribe_scan" value="true"/>
+
+                <arg name="localization" value="$(arg localizaion)"/>
+
+                
+                
+                <arg name="approx_sync" value="false"/>
+                <arg name="wait_imu_to_init" value="false"/>
+                <arg name="imu_topic" value="/rtabmap/imu"/>
+                <arg name="rtabmapviz" value="false"/>
+                <arg name="rviz" value="true" />
+            </include>
+
+            <!--node name="rtabmap" pkg="rtabmap_ros" type="rtabmap" output="screen" args="delete_db_on_start">
+                <param name="database_path" value="$(arg rtab_database_path)"/>
+                <param name="frame_id" type="string" value="base_link"/>
+                <param name="odom_frame_id" type="string" value="odom"/>
+                <param name="wait_for_transform_duration" type="double" value="$(arg wait_for_transform)"/>
+
+                <param name="subscribe_depth" type="bool" value="true"/>
+                <param name="subscribe_rgb" type="bool" value="true"/>
+                <param name="subscribe_scan" type="bool" value="true"/>
+
+                <remap from="odom" to="/odom"/>
+                <remap from="scan" to="/scan"/>
+
+
+                
+                <remap from="scan" to="/scan"/>
+                <remap from="rgb/image" to="/camera/color/image_raw"/>
+                <remap from="depth/image" to="/camera/aligned_depth_to_color/image_raw"/>
+                <remap from="rgb/camera_info" to="/camera/color/camera_info"/>
+
+                
+                <remap from="grid_map" to="/rtabmap/grid_map"/>
+
+
+                
+                <param name="RGBD/NeighborLinkRefining" type="string" value="true"/>
+                <param name="RGBD/ProximityBySpace" type="string" value="true"/>
+                <param name="RGBD/OptimizeFromGraphEnd" type="string" value="false"/>
+                <param name="RGBD/ProximityByTime" type="string" value="true"/>
+                <param name="RGBD/AngularUpdate" type="string" value="0.01"/>
+                <param name="RGBD/LinearUpdate" type="string" value="0.01"/>
+
+                <param name="Kp/MaxDepth" type="string" value="4.0"/>
+                <param name="Icp/CorrespondenceRatio" type="string" value="0.3"/>
+
+                <param name="Optimizer/Slam2D" type="string" value="true"/>
+                <param name="Reg/Strategy" type="string" value="1"/>
+                <param name="Reg/Force3DoF" type="string" value="true"/>
+                <param name="Vis/MinInliers" type="string" value="5"/>
+                <param name="Vis/InlierDistance" type="string" value="0.1"/>
+                <param name="Rtabmap/TimeThr" type="string" value="700"/>
+                <param name="Mem/RehearsalSimilarity" type="string" value="0.3"/>
+                <param name="Mem/IncrementalMemory" type="string" value="false"/>
+
+            </node-->
+                
+            
+
+
+            <!--move_base-->
+            <node pkg="move_base" type="move_base" respawn="false" name="move_base" output="screen">
+                <param name="clearing_rotation_allowed" value="true" />
+                <rosparam file="$(find project)/params/costmap_common_params.yaml" command="load" ns="global_costmap" /> 
+                <rosparam file="$(find project)/params/costmap_common_params.yaml" command="load" ns="local_costmap" />
+                <rosparam file="$(find project)/params/local_costmap_params.yaml" command="load" />
+                <rosparam file="$(find project)/params/global_costmap_params.yaml" command="load" /> 
+                <rosparam file="$(find project)/params/base_local_planner_params.yaml" command="load" />
+                <remap from="/cmd_vel" to="/cmd_vel" />
+            </node>
+        </group>
+
+        
+
+        <!-- Rviz -->
+        <group if="$(arg open_rviz)"> 
+            <node pkg="rviz" type="rviz" name="rviz" required="true" args="-d $(find project)/rviz/project_navigation.rviz"/>
+        </group>
+        
+        <!-- Node or Script to set goal using the coordinates -->
+        <!--node pkg="project" type="set_goal.py" name="set_goal" output="screen">
+            <param name="goal_x" value="$(arg goal_x)" />
+            <param name="goal_y" value="$(arg goal_y)" />
+        </node-->
+
+        <node name="map2odom" pkg="tf" type="static_transform_publisher" args="0 0 0 0 0 0 /map /odom 100"/>
+        <node pkg="tf" type="static_transform_publisher" name="camera_to_base_broadcaster"
+      args="0.0 0.0 0.0 0 0 0 base_link camera_color_optical_frame 100" />
+
+
+    </launch>

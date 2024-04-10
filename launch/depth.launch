@@ -1,0 +1,40 @@
+<launch>
+
+  <!-- realsense parameters -->   
+  <arg name="depth_width"         default="1280"/>
+  <arg name="depth_height"        default="720"/>
+  <arg name="enable_depth"        default="true"/>
+  <arg name="color_width"         default="1280"/>
+  <arg name="color_height"        default="720"/>
+  <arg name="enable_color"        default="true"/>
+  <arg name="depth_fps" default="30"/>
+  <arg name="color_fps" default="30"/>
+
+  <arg name="unite_imu_method"          default="linear_interpolation"/>
+
+  <!-- Launch realsense2_camera -->
+  <include file="$(find realsense2_camera)/launch/rs_camera.launch">
+    <arg name="align_depth" value="true"/>
+    <arg name="enable_gyro" value="true"/>
+    <arg name="enable_accel" value="true"/>
+    <arg name="enable_sync"  value="true"/>
+    <arg name="publish_tf" value="true"/>
+
+    <arg name="enable_depth"        value="$(arg enable_depth)"/>
+    <arg name="enable_color"        value="$(arg enable_color)"/>
+
+    <arg name="enable_infra1"            value="true"/>
+    <arg name="enable_infra2"            value="true"/>
+
+    <arg name="unite_imu_method"         value="$(arg unite_imu_method)"/>
+    <!--arg name="depth_width"         value="$(arg depth_width)"/>
+    <arg name="depth_height"        value="$(arg depth_height)"/>
+    
+    <arg name="color_width"         value="$(arg color_width)"/>
+    <arg name="color_height"        value="$(arg color_height)"/>
+    
+    <arg name="depth_fps" value="$(arg depth_fps)"/>
+    <arg name="color_fps" value="$(arg color_fps)"/-->
+  </include>
+
+</launch>

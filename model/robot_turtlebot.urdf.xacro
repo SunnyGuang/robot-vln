@@ -1,0 +1,19 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://ros.org/wiki/xacro" name="robot_turtlebot">
+
+    <!-- Include TurtleBot3 Burger model -->
+    <xacro:include filename="$(find turtlebot3_description)/urdf/turtlebot3_burger.urdf.xacro" />
+
+    <!-- Include Realsense D435i model -->
+    <xacro:include filename="$(find realsense_ros)/realsense_description/urdf/d435i.urdf.xacro" />
+
+    <!-- TurtleBot3 Burger Base Link -->
+    <link name="base_link"/>
+
+    <!-- Mount Realsense D435i on TurtleBot3 -->
+    <xacro:d435i parent="base_link" name="realsense_camera">
+        <!-- Adjust the position and orientation as needed -->
+        <origin xyz="0.1 0 0.2" rpy="0 0 0"/>
+    </xacro:d435i>
+
+</robot>

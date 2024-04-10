@@ -1,0 +1,177 @@
+<launch>
+  <!-- rosaria parameters -->
+  <arg name="com_port" default="/dev/ttyUSB0"/>
+  <arg name="preview" default="false"/>
+  <arg name="publish_tf" default="true"/> 
+
+  <!-- realsense parameters -->   
+  <arg name="depth_width"         default="1280"/>
+  <arg name="depth_height"        default="720"/>
+  <arg name="enable_depth"        default="true"/>
+  <arg name="color_width"         default="1280"/>
+  <arg name="color_height"        default="720"/>
+  <arg name="enable_color"        default="true"/>
+  <arg name="depth_fps" default="30"/>
+  <arg name="color_fps" default="30"/>
+  <arg name="frame_id" default="base_link"/>
+  <arg name="unite_imu_method"          default="linear_interpolation"/>
+  <arg name="align_depth" default="true"/>
+
+  <!-- rtabmap parameters -->
+  <arg name="initial_pose"            default="0 0 0 0 0 0"/>  
+  <arg name="database_path"           default="~/.ros/rtabmap.db"/>
+  <arg name="rtabmapviz"              default="false" />
+  <arg name="rviz"                    default="true" />
+
+  <arg name="rtabmapviz_cfg"          default="~/.ros/rtabmap_gui.ini" />
+  <arg name="rviz_cfg"                default="$(find project)/rviz/viz.rviz" />
+
+  <arg name="localization"            default="true"/>
+
+  <arg name="launch_prefix"           default=""/>
+  <arg name="approx_sync"             default="true"/>
+  <arg name="rtabmap_args"            default="--Optimizer/GravitySigma 0.3"/>
+
+  <arg name="stereo_namespace"        default="/stereo_camera"/>
+  <arg name="left_image_topic"        default="/camera/infra1/image_rect_raw" />
+  <arg name="right_image_topic"       default="/camera/infra2/image_rect_raw" />      <!-- using grayscale image for efficiency -->
+  <arg name="left_camera_info_topic"  default="/camera/infra1/camera_info" />
+  <arg name="right_camera_info_topic" default="/camera/infra2/camera_info" />
+  <arg name="compressed"              default="false"/>
+
+  <arg name="subscribe_scan"          default="true"/>         <!-- Assuming 2D scan if set, rtabmap will do 3DoF mapping instead of 6DoF -->
+  <arg name="scan_topic"              default="/scan"/>
+
+  <arg name="subscribe_scan_cloud"    default="false"/>         <!-- Assuming 3D scan if set -->
+  <arg name="scan_cloud_topic"        default="/scan_cloud"/>
+
+  <arg name="visual_odometry"         default="false"/>          <!-- Generate visual odometry -->
+  <arg name="odom_topic"              default="/odom"/>         <!-- Odometry topic used if visual_odometry is false -->
+  <arg name="odom_frame_id"           default="/odom"/>              <!-- If set, TF is used to get odometry instead of the topic -->
+
+  <arg name="namespace"               default="rtabmap"/>
+  <arg name="wait_for_transform"      default="0.2"/>
+
+  <!--set goal-->
+  <arg name="goal_x" default="6.0" doc="goal point x-coordinate"/>
+  <arg name="goal_y" default="-1.0" doc="goal point y-coordinate"/>
+
+  <!-- rosaria -->
+  <include file="$(find project)/launch/robot.launch">
+    <arg name="com_port" value="$(arg com_port)"/>
+    <arg name="preview" value="$(arg preview)"/>
+  </include>
+
+  <!-- Launch realsense2_camera -->
+  <include file="$(find realsense2_camera)/launch/rs_camera.launch">
+    <arg name="align_depth" value="$(arg align_depth)"/>
+    <arg name="enable_gyro" value="true"/>
+    <arg name="enable_accel" value="true"/>
+    <arg name="enable_sync"  value="true"/>
+    <arg name="publish_tf" value="$(arg publish_tf)"/>
+    <!--arg name="depth_width"         value="$(arg depth_width)"/>
+    <arg name="depth_height"        value="$(arg depth_height)"/-->
+    <arg name="enable_depth"        value="$(arg enable_depth)"/>
+    <!--arg name="color_width"         value="$(arg color_width)"/>
+    <arg name="color_height"        value="$(arg color_height)"/-->
+    <arg name="enable_color"        value="$(arg enable_color)"/>
+    <!--arg name="depth_fps" value="$(arg depth_fps)"/>
+    <arg name="color_fps" value="$(arg color_fps)"/-->
+
+    <arg name="enable_infra1"            value="true"/>
+    <arg name="enable_infra2"            value="true"/>
+    <arg name="unite_imu_method"         value="$(arg unite_imu_method)"/>
+  </include>
+
+  <!-- rs cloud to laser scan -->
+  <node pkg="depthimage_to_laserscan" type="depthimage_to_laserscan" name="depthimage_to_laserscan">
+    <remap from="image"       to="/camera/depth/image_rect_raw"/>
+    <remap from="camera_info" to="/camera/depth/camera_info"/>
+    <remap from="scan"        to="/scan"/>
+    <param name="range_max" type="double" value="4"/>
+  </node>
+
+  <!-- Set fixed initial pose -->
+  <!--node pkg="tf" type="static_transform_publisher" name="initial_pose_publisher" args="0 0 0 0 0 0 /map /base_link 100" /-->
+
+  <!-- Run imu_filter_madgwick node -->
+  <node pkg="imu_filter_madgwick" type="imu_filter_node" name="imu_filter_node">
+    <param name="use_mag" value="false"/>
+    <param name="publish_tf" value="false"/>
+    <param name="world_frame" value="enu"/>
+    <remap from="/imu/data_raw" to="/camera/imu"/>
+    <remap from="/imu/data" to="/rtabmap/imu"/>
+  </node>
+
+  <!-- Launch rtabmap -->
+  <include file="$(find rtabmap_ros)/launch/rtabmap.launch">
+    <arg name="initial_pose"            value="$(arg initial_pose)" />
+    <arg name="stereo"                  value="true"/>
+    <arg name="rtabmap_viz"             value="$(arg rtabmapviz)" />
+    <arg name="rviz"                    value="$(arg rviz)" />
+    <arg name="localization"            value="$(arg localization)"/>
+    <arg name="gui_cfg"                 value="$(arg rtabmapviz_cfg)" />
+    <arg name="rviz_cfg"                value="$(arg rviz_cfg)" />
+
+    <arg name="frame_id"                value="$(arg frame_id)"/>
+    <arg name="namespace"               value="$(arg namespace)"/>
+    <arg name="database_path"           value="$(arg database_path)"/>
+    <arg name="wait_for_transform"      value="$(arg wait_for_transform)"/>
+    <arg name="rtabmap_args"            value="$(arg rtabmap_args)"/>
+    <arg name="launch_prefix"           value="$(arg launch_prefix)"/>
+    <arg name="approx_sync"             value="$(arg approx_sync)"/>
+
+    <arg name="stereo_namespace"        value="$(arg stereo_namespace)"/>
+    <arg name="left_image_topic"        value="$(arg left_image_topic)" />
+    <arg name="right_image_topic"       value="$(arg right_image_topic)" />
+    <arg name="left_camera_info_topic"  value="$(arg left_camera_info_topic)" />
+    <arg name="right_camera_info_topic" value="$(arg right_camera_info_topic)" />
+
+    <arg name="compressed"              value="$(arg compressed)"/>
+
+    <arg name="subscribe_scan"          value="$(arg subscribe_scan)"/>
+    <arg name="scan_topic"              value="$(arg scan_topic)"/>
+
+    <arg name="subscribe_scan_cloud"    value="$(arg subscribe_scan_cloud)"/>
+    <arg name="scan_cloud_topic"        value="$(arg scan_cloud_topic)"/>
+
+    <arg name="visual_odometry"         value="$(arg visual_odometry)"/>
+    <arg name="odom_topic"              value="$(arg odom_topic)"/>
+    <arg name="odom_frame_id"           value="$(arg odom_frame_id)"/>
+    <arg name="odom_args"               value="$(arg rtabmap_args)"/>
+
+
+    <arg name="depth_topic" value="/camera/aligned_depth_to_color/image_raw"/>
+    <!--arg name="depth_topic" value="/camera/depth/image_rect_raw"/-->
+    <arg name="rgb_topic" value="/camera/color/image_raw"/>
+    <arg name="camera_info_topic" value="/camera/color/camera_info"/>
+    <arg name="wait_imu_to_init" value="true"/>
+    <arg name="imu_topic" value="/rtabmap/imu"/>
+  </include>
+
+  <!-- Launch darknet_ros -->
+  <include file="$(find darknet_ros)/launch/darknet_ros.launch"/>
+
+  <!--recode memory node-->
+  <node pkg="project" type="localization_test.py" name="localization_test" output="screen">
+  </node>
+
+  <!--recode robot data node-->
+  <node pkg="project" type="robot_data.py" name="robot_data" output="screen">
+  </node>
+
+  <!--move_base-->
+  <node pkg="move_base" type="move_base" respawn="false" name="move_base" output="screen">
+      <param name="clearing_rotation_allowed" value="true" />
+      <rosparam file="$(find project)/params/costmap_common_params.yaml" command="load" ns="global_costmap" /> 
+      <rosparam file="$(find project)/params/costmap_common_params.yaml" command="load" ns="local_costmap" />
+      <rosparam file="$(find project)/params/local_costmap_params.yaml" command="load" />
+      <rosparam file="$(find project)/params/global_costmap_params.yaml" command="load" /> 
+      <rosparam file="$(find project)/params/base_local_planner_params.yaml" command="load" />
+      <remap from="/cmd_vel" to="/cmd_vel" />
+      <remap from="/map" to="/rtabmap/grid_map" />
+      <param name="goal_x" value="$(arg goal_x)" />
+      <param name="goal_y" value="$(arg goal_y)" />
+  </node>
+
+</launch>

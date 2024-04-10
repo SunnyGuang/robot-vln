@@ -1,0 +1,7 @@
+<!-- FILEPATH: /home/sunny/catkin_ws/src/project/launch/roaria.launch -->
+
+<launch>
+  <node name="rosaira_node" pkg="your_package_name" type="rosaira_node" output="screen">
+    <!-- Add any necessary arguments or parameters here -->
+  </node>
+</launch>

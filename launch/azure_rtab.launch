@@ -1,0 +1,157 @@
+<!--
+Copyright (c) Microsoft Corporation. All rights reserved.
+Licensed under the MIT License.
+-->
+
+<launch>
+  <!-- rosaria parameters -->
+  <arg name="com_port" default="/dev/ttyUSB0"/>
+  <arg name="preview" default="false"/>
+  <arg name="publish_tf" default="true"/> 
+
+  <!-- realsense parameters -->   
+  <arg name="frame_id" default="base_link"/>
+
+  <!-- rtabmap parameters -->
+  <arg name="initial_pose"            default="0 0 0 0 0 0"/>  
+  <arg name="database_path"           default="~/.ros/rtabmap.db"/>
+  <arg name="rtabmapviz"              default="true" />
+  <arg name="rviz"                    default="true" />
+
+  <arg name="rtabmapviz_cfg"          default="~/.ros/rtabmap_gui.ini" />
+  <arg name="rviz_cfg"                default="$(find project)/rviz/viz.rviz" />
+
+  <arg name="localization"            default="false"/>
+
+  <arg name="launch_prefix"           default=""/>
+  <arg name="approx_sync"             default="true"/>
+  <arg name="rtabmap_args"            default="--Optimizer/GravitySigma 0.3 --delete_db_on_start --Odom/ResetCountdown 2  --Grid/Sensor 1"/>
+
+  <arg name="subscribe_scan"          default="true"/>         <!-- Assuming 2D scan if set, rtabmap will do 3DoF mapping instead of 6DoF -->
+  <arg name="scan_topic"              default="/scan"/>
+
+  <arg name="subscribe_scan_cloud"    default="false"/>         <!-- Assuming 3D scan if set -->
+  <arg name="scan_cloud_topic"        default="/scan_cloud"/>
+
+  <arg name="visual_odometry"         default="true"/>          <!-- Generate visual odometry -->
+  <arg name="odom_topic"              default="/odom"/>         <!-- Odometry topic used if visual_odometry is false -->
+  <arg name="odom_frame_id"           default="/odom"/>              <!-- If set, TF is used to get odometry instead of the topic -->
+
+  <arg name="namespace"               default="rtabmap"/>
+  <arg name="wait_for_transform"      default="0.2"/>
+
+  
+  <!--param name="robot_description"
+    command="xacro $(find project)/urdf/robot_azure.urdf.xacro" /-->
+
+  <!--node name="joint_state_publisher" pkg="joint_state_publisher" type="joint_state_publisher" />
+  <node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher" /-->
+ 
+  <!-- rosaria -->
+  <include file="$(find project)/launch/robot.launch">
+    <arg name="com_port" value="$(arg com_port)"/>
+    <arg name="preview" value="$(arg preview)"/>
+  </include>
+
+  <!-- Start the K4A sensor driver -->
+  <group ns="k4a" >
+
+    <!-- Spawn a nodelet manager -->
+    <node pkg="nodelet" type="nodelet" name="manager" args="manager" output="screen">
+      <param name="num_worker_threads" value="16" />
+    </node>
+
+    <!-- Spawn an image_proc/rectify nodelet to rectify the RGB image -->
+    <node pkg="nodelet" type="nodelet" name="rectify_rgb"
+          args="load image_proc/rectify manager --no-bond"
+          respawn="true">
+      <remap from="image_mono"  to="rgb_to_depth/image_raw" />
+      <remap from="image_rect"  to="rgb_to_depth/image_rect" />
+    </node>
+
+    <!-- Spawn an image_proc/rectify nodelet to rectify the depth image -->
+    <node pkg="nodelet" type="nodelet" name="rectify_depth"
+          args="load image_proc/rectify manager --no-bond"
+          respawn="true">
+      <remap from="image_mono"  to="depth/image_raw" />
+      <remap from="image_rect"  to="depth/image_rect" />
+    </node>
+
+    <node pkg="nodelet" type="nodelet" name="k4a_ros_bridge"
+          args="load Azure_Kinect_ROS_Driver/K4AROSBridgeNodelet manager --no-bond"
+          respawn="true">
+      <param name="depth_enabled"     value="true" />
+      <param name="depth_mode"        value="NFOV_UNBINNED" />
+      <param name="color_enabled"     value="true" />
+      <param name="color_resolution"  value="1536P" />
+      <param name="fps"               value="30" />
+      <param name="point_cloud"       value="false" />
+      <param name="rgb_point_cloud"   value="false" />
+      <param name="required"          value="true" />
+      <param name="imu_rate_target"   value="100" />
+    </node>
+
+  </group>
+
+  <!--include file="$(find rtabmap_ros)/launch/rtabmap.launch" ns="rtabmap" >
+    <arg name="rgb_topic"          value="/k4a/rgb_to_depth/image_rect" />
+    <arg name="depth_topic"        value="/k4a/depth/image_rect" />
+    <arg name="camera_info_topic"  value="/k4a/depth/camera_info" />
+    <arg name="approx_sync"        value="true" />
+    <arg name="frame_id"           value="camera_base" />
+    <arg name="args"               value="delete_db_on_start Odom/ResetCountdown 2" />
+  </include-->
+
+  <!-- Launch rtabmap -->
+  <include file="$(find rtabmap_ros)/launch/rtabmap.launch">
+    <!--arg name="initial_pose"            value="$(arg initial_pose)" />
+    <arg name="stereo"                  value="false"/-->
+    <arg name="rtabmap_viz"             value="$(arg rtabmapviz)" />
+    <arg name="rviz"                    value="$(arg rviz)" />
+    <arg name="localization"            value="$(arg localization)"/>
+    <arg name="gui_cfg"                 value="$(arg rtabmapviz_cfg)" />
+    <arg name="rviz_cfg"                value="$(arg rviz_cfg)" />
+
+    <arg name="frame_id"                value="$(arg frame_id)"/>
+    <!--arg name="namespace"               value="$(arg namespace)"/>
+    <arg name="database_path"           value="$(arg database_path)"/-->
+    <arg name="wait_for_transform"      value="$(arg wait_for_transform)"/>
+    <arg name="rtabmap_args"            value="$(arg rtabmap_args)"/>
+    <!--arg name="launch_prefix"           value="$(arg launch_prefix)"/-->
+    <arg name="approx_sync"             value="$(arg approx_sync)"/>
+
+    <!--arg name="subscribe_scan"          value="$(arg subscribe_scan)"/>
+    <arg name="scan_topic"              value="$(arg scan_topic)"/>
+
+    <arg name="subscribe_scan_cloud"    value="$(arg subscribe_scan_cloud)"/>
+    <arg name="scan_cloud_topic"        value="$(arg scan_cloud_topic)"/>
+
+    <arg name="visual_odometry"         value="$(arg visual_odometry)"/-->
+    <!--arg name="odom_topic"              value="$(arg odom_topic)"/>
+    <arg name="odom_frame_id"           value="$(arg odom_frame_id)"/-->
+    <arg name="odom_args"               value="$(arg rtabmap_args)"/>
+
+
+    <arg name="rgb_topic"          value="/k4a/rgb_to_depth/image_rect" />
+    <arg name="depth_topic"        value="/k4a/depth/image_rect" />
+    <arg name="camera_info_topic"  value="/k4a/depth/camera_info" />
+    <!--arg name="wait_imu_to_init" value="true"/>
+    <arg name="imu_topic" value="/rtabmap/imu"/-->
+  </include>
+
+    <!--arg name="frame_id"           value="camera_base" /-->
+    <!--arg name="args"               value="delete_db_on_start Odom/ResetCountdown 2" /-->
+
+    
+  <!--move_base-->
+  <node pkg="move_base" type="move_base" respawn="false" name="move_base" output="screen">
+      <param name="clearing_rotation_allowed" value="true" />
+      <rosparam file="$(find project)/params/costmap_common_params.yaml" command="load" ns="global_costmap" /> 
+      <rosparam file="$(find project)/params/costmap_common_params.yaml" command="load" ns="local_costmap" />
+      <rosparam file="$(find project)/params/local_costmap_params.yaml" command="load" />
+      <rosparam file="$(find project)/params/global_costmap_params.yaml" command="load" /> 
+      <rosparam file="$(find project)/params/base_local_planner_params.yaml" command="load" />
+      <remap from="/cmd_vel" to="/cmd_vel" />
+  </node>
+
+</launch>

@@ -1,0 +1,20 @@
+<?xml version="1.0"?>
+
+<robot name="robot_azure" xmlns:xacro="http://ros.org/wiki/xacro">
+
+  <!-- sensor mount description -->
+  <xacro:include filename="$(find project)/urdf/camera_mount.urdf.xacro" />
+  <xacro:camera_mount_xacro parent="base_link">
+	  <origin rpy="0 0 0" xyz="0 0 0.47"/>
+  </xacro:camera_mount_xacro>
+
+  <!-- azure kinect description -->
+  <xacro:include filename="$(find project)/urdf/azure_kinect.urdf.xacro" />
+  <xacro:azure_kinect_xacro name="camera" parent="camera_mount_top">
+	  <origin rpy="0 -0.0225 0" xyz="0.05 0.023 0.01"/>
+  </xacro:azure_kinect_xacro>
+
+	<!-- robot description -->
+  <xacro:include filename="$(find project)/urdf/pioneer3dx.urdf.xacro"/>
+
+</robot>
