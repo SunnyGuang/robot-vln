@@ -12,7 +12,9 @@ Please follow the instructions below to set up Robot-VLN in your environment:
 3. Follow the setup instructions in `INSTALL.md`.
 
 ## Usage
-To run Robot-VLN, navigate to the project directory and execute:
+To run Robot-VLN, navigate with voice input in simulation:
+roslaunch project gazebo.launch
+
 
 ## Real Robot:
 roslaunch project lab.launch
