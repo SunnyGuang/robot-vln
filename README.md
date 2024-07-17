@@ -20,4 +20,4 @@ roslaunch project lab.launch
 ## Sinmulation:
 roslaunch project house_gazebo.launch
 
-![](https://github.com/robot-vln/config/simulation.gif)
+![](https://github.com/SunnyGuang/robot-vln/config/simulation.gif)
