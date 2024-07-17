@@ -13,13 +13,14 @@ Please follow the instructions below to set up Robot-VLN in your environment:
 
 ## Usage
 To run Robot-VLN, navigate with voice input in simulation:
-roslaunch project gazebo.launch
+
+`roslaunch project gazebo.launch`
 
 
 ## Real Robot:
-roslaunch project lab.launch
+`roslaunch project lab.launch`
 
 ## Sinmulation:
-roslaunch project house_gazebo.launch
+`roslaunch project house_gazebo.launch`
 
 ![](https://github.com/SunnyGuang/robot-vln/blob/main/config/simulation.gif)
